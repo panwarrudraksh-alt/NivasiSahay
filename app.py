@@ -2,17 +2,17 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import date
-from PIL import Image
-import os
 import uuid
+from io import BytesIO
 
-# ---------- CONFIG ----------
-st.set_page_config(page_title="NivasiSahay", layout="centered")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="NivasiSahay",
+    page_icon="🏘️",
+    layout="centered"
+)
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# ---------- DATABASE ----------
+# ---------------- DATABASE ----------------
 conn = sqlite3.connect("nivasisahay.db", check_same_thread=False)
 c = conn.cursor()
 
@@ -24,20 +24,23 @@ CREATE TABLE IF NOT EXISTS complaints (
     issue_type TEXT,
     description TEXT,
     phone TEXT,
-    image_path TEXT,
+    image BLOB,
     date_reported TEXT,
     status TEXT
 )
 """)
 conn.commit()
 
-# ---------- UI ----------
+# ---------------- UI ----------------
 st.title("🏘️ NivasiSahay")
-st.caption("Register Civic Issues with Proof")
+st.caption("Community Civic Issue Registration System")
 
-menu = st.sidebar.radio("Menu", ["Register Complaint", "View Complaints"])
+menu = st.sidebar.radio(
+    "Menu",
+    ["Register Complaint", "View Complaints"]
+)
 
-# ---------- REGISTER COMPLAINT ----------
+# ---------------- REGISTER COMPLAINT ----------------
 if menu == "Register Complaint":
     st.subheader("📌 Register Your Problem")
 
@@ -47,30 +50,22 @@ if menu == "Register Complaint":
         ["Water Supply", "Garbage", "Streetlight", "Drainage", "Road Damage"]
     )
     description = st.text_area("Describe the problem clearly")
-
     uploaded_image = st.file_uploader(
         "Upload Image (Proof of problem)",
         type=["jpg", "jpeg", "png"]
     )
-
     phone = st.text_input("Mobile Number")
 
     if st.button("Submit Complaint"):
         if not (area and description and phone and uploaded_image):
-            st.warning("Please fill all fields and upload an image")
+            st.warning("⚠️ Please fill all fields and upload an image.")
         else:
-            # Generate complaint number
             complaint_no = f"NS-{uuid.uuid4().hex[:8].upper()}"
+            image_bytes = uploaded_image.getvalue()
 
-            # Save image
-            image_path = os.path.join(UPLOAD_FOLDER, f"{complaint_no}.png")
-            image = Image.open(uploaded_image)
-            image.save(image_path)
-
-            # Insert into DB
             c.execute("""
                 INSERT INTO complaints
-                (complaint_no, area, issue_type, description, phone, image_path, date_reported, status)
+                (complaint_no, area, issue_type, description, phone, image, date_reported, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 complaint_no,
@@ -78,7 +73,7 @@ if menu == "Register Complaint":
                 issue_type,
                 description,
                 phone,
-                image_path,
+                image_bytes,
                 str(date.today()),
                 "Registered"
             ))
@@ -88,16 +83,31 @@ if menu == "Register Complaint":
             st.info(f"🧾 Your Complaint Number: **{complaint_no}**")
             st.caption("Please save this number for future reference.")
 
-# ---------- VIEW COMPLAINTS ----------
+# ---------------- VIEW COMPLAINTS ----------------
 elif menu == "View Complaints":
     st.subheader("📂 Registered Complaints")
 
-    df = pd.read_sql_query("SELECT * FROM complaints", conn)
+    df = pd.read_sql_query("SELECT * FROM complaints ORDER BY id DESC", conn)
 
     if df.empty:
-        st.info("No complaints registered yet")
+        st.info("No complaints registered yet.")
     else:
-        df_display = df[[
-            "complaint_no", "area", "issue_type", "date_reported", "status"
-        ]]
-        st.dataframe(df_display)
+        for _, row in df.iterrows():
+            st.markdown(f"### 🧾 Complaint No: {row['complaint_no']}")
+            st.write(f"📍 **Area:** {row['area']}")
+            st.write(f"🛠️ **Issue Type:** {row['issue_type']}")
+            st.write(f"📝 **Description:** {row['description']}")
+            st.write(f"📅 **Date:** {row['date_reported']}")
+            st.write(f"📞 **Phone:** {row['phone']}")
+            st.write(f"📌 **Status:** {row['status']}")
+
+            if row["image"]:
+                st.image(
+                    BytesIO(row["image"]),
+                    caption="Uploaded Image",
+                    width=350
+                )
+            else:
+                st.warning("Image not available")
+
+            st.divider()
