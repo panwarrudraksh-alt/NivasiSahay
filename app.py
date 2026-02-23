@@ -16,12 +16,9 @@ st.set_page_config(
 conn = sqlite3.connect("nivasisahay.db", check_same_thread=False)
 c = conn.cursor()
 
-# ⚠️ IMPORTANT: reset table to avoid schema mismatch (prototype-safe)
-c.execute("DROP TABLE IF EXISTS complaints")
-conn.commit()
-
+# Create table safely (NO DROP)
 c.execute("""
-CREATE TABLE complaints (
+CREATE TABLE IF NOT EXISTS complaints (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     complaint_no TEXT,
     area TEXT,
@@ -85,7 +82,6 @@ if menu == "Register Complaint":
 
             st.success("✅ Problem registered successfully!")
             st.info(f"🧾 Your Complaint Number: **{complaint_no}**")
-            st.caption("Please save this number for future reference.")
 
 # ---------------- VIEW COMPLAINTS ----------------
 elif menu == "View Complaints":
@@ -114,7 +110,5 @@ elif menu == "View Complaints":
                     caption="Uploaded Image",
                     width=350
                 )
-            else:
-                st.warning("No image available")
 
             st.divider()
