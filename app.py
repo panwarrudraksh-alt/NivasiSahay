@@ -16,8 +16,12 @@ st.set_page_config(
 conn = sqlite3.connect("nivasisahay.db", check_same_thread=False)
 c = conn.cursor()
 
+# ⚠️ IMPORTANT: reset table to avoid schema mismatch (prototype-safe)
+c.execute("DROP TABLE IF EXISTS complaints")
+conn.commit()
+
 c.execute("""
-CREATE TABLE IF NOT EXISTS complaints (
+CREATE TABLE complaints (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     complaint_no TEXT,
     area TEXT,
@@ -87,7 +91,10 @@ if menu == "Register Complaint":
 elif menu == "View Complaints":
     st.subheader("📂 Registered Complaints")
 
-    df = pd.read_sql_query("SELECT * FROM complaints ORDER BY id DESC", conn)
+    df = pd.read_sql_query(
+        "SELECT * FROM complaints ORDER BY id DESC",
+        conn
+    )
 
     if df.empty:
         st.info("No complaints registered yet.")
@@ -101,13 +108,13 @@ elif menu == "View Complaints":
             st.write(f"📞 **Phone:** {row['phone']}")
             st.write(f"📌 **Status:** {row['status']}")
 
-            if row["image"]:
+            if row["image"] is not None:
                 st.image(
                     BytesIO(row["image"]),
                     caption="Uploaded Image",
                     width=350
                 )
             else:
-                st.warning("Image not available")
+                st.warning("No image available")
 
             st.divider()
